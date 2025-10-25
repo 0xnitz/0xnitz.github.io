@@ -19,9 +19,9 @@ As expected, opening the IDB the first time takes a while (I even stop the analy
 
 The file is huge, the first thing I do is looking at the imports/strings and checking if anything jumps to my eyes as interesting
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023083405474.png)
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023083522186.png)
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023083638347.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023083405474.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023083522186.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023083638347.png)
 Okay, only from the imports I have a few assumptions
 
 * The flag is hardcoded and decrypted using `BcryptDecrypt`, probably AES or something strong
@@ -54,7 +54,7 @@ wrong!
 
 Woah, when inputting the right length the program opens a billion cmds and `MessageBox` windows
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023083946768.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023083946768.png)
 
 It appears there are 16 cmd.exe windows along with 16 message boxes, probably a new cmd and a new `MessageBoxW` for every password char(?)
 
@@ -66,32 +66,32 @@ We have enough information, lets dive into the binary and look at the `bcrypt` m
 
 The most important function in this context is `BCryptDecrypt` for obvious reasons, I'll see who calls it:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085358427.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085358427.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085405046.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085405046.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085414448.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085414448.png)
 
 Nice, 2 calls from the same procedure. This makes a lot of sense because usually you call `BCryptDecrypt` with `pbOutput = NULL` to get the actual plaintext buffer's size saved to the outparam to the `pcbResult` parameter.
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085626807.png)
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085700149.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085626807.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085700149.png)
 Let's see if my assumption about the flag is correct
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085842423.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085842423.png)
 
 Okay I'm not sure where `input` comes from, when trying to go to the callers of this function and it's wrapper we get a decompilation failure, probably obfuscation.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085949151.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023085949151.png)
 
 We'll dive deep into this big function later on in the research process, for now I have enough information to assume the flag is hardcoded and most likely decrypted with the SHA256 of the password.
 
 #### Exhibit 1 - Hardcoded Ciphertext/IV
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023090229677.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023090229677.png)
 
 #### Exhibit 2 - Win Print
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023090352157.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023090352157.png)
 
 This is definitely enough for now:
 
@@ -100,27 +100,27 @@ This is definitely enough for now:
 Now We'll move on to the `CreateFile`, `WriteFile`, `ReadFile` calls, I wanna know if my final assumption is correct, what does the **NTFS** has to do with the CTF, and how is it related to the win print/condition we just found.
 ## Discovering the ADS
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023091103424.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023091103424.png)
 
 When tracing the xrefs to CreateFileA there are 2 exact copies of the same function, 2 `ReadFile` functions and 2 `WriteFile` functions, I'll break on the `ReadFile` ones first and check what is the value of `second_pointer`:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023091457592.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023091457592.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023091510870.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023091510870.png)
 
 Wow! The NTFS comes to play in the form of ADS!
 
 After continuing I see there is a total of 4 ADS:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023093521791.png)
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023093603520.png)
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023093620725.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023093521791.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023093603520.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023093620725.png)
 
 Remember the duplicates? It seems 1 `ReadFile` and 1 `WriteFile` handle `:input` and the other 2 handle the 3 other ADS: `:position, :transitions, :state`
 
 After naming the functions, we get a pretty clear picture confirming my assumption from earlier:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023090126824.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023090126824.png)
 
 The big, non decompile-able function seem to handle the program logic and isn't obfuscated in any way, most of it's bloat is some switch-case (spoilers :D)
 
@@ -250,20 +250,20 @@ Now gotta find the win condition, how is the password validated? The large funct
 
 I traced the `read_input` function that reads from the ADS and see it has 2 calls, both from the big function.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023100431396.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023100431396.png)
 
 The first one is the one I highlighted earlier, the input is saved into a local variable that is not referenced after this point:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023100507735.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023100507735.png)
 
 and `var_70` the decryption struct as I call it is also not referenced later on in the function.
 Jumping to the second `read_input` we see the huge switch-case i hinted at earlier.
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023100558294.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023100558294.png)
 #### The Switch-Case
 
 The switch-case is ginormous, has `USHORT_MAX` cases and each case besides the first one `46369` seem to look the same (The first one might be the win-condition, but I didn't need to know that in the end):
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023102002856.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023102002856.png)
 
 * 🟩 - Start of case
 * 🟥 - Lose condition - when the `:input.at(position) != any of the chars`
@@ -277,19 +277,19 @@ The switch-case is ginormous, has `USHORT_MAX` cases and each case besides the f
 
 Final important Note - after the increase of `:state` the function that calls `CreateProcess` is called
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023102511602.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023102511602.png)
 
 Final, Final note - After the state increase and in a new process' context the next case's number is saved and jumped to, the orange number from the case screenshot.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023102559982.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023102559982.png)
 #### Funny Lock Troll
 
 Some cases look like this:
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023103044365.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023103044365.png)
 
 If the current letter doesn't match any of the options `ExitWindowsEx` is called
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023103002392.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023103002392.png)
 
 To me it looks like motivation to solve this using static analysis and scripting and not by dynamic - by hand debugging.
 
@@ -332,7 +332,7 @@ I got the switch case's address file offset by searching the hex bytes in 010 Ed
 
 Now, when we have a working `parse_case` function we can recursively call `get_all_password_options` with the start case for the chain and the password prefix.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023104013848.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023104013848.png)
 
 You can think of it like a tree, at every intersection we recursively call `get_all_password_options` with all the chars until this point, and if the password was 4 chars long, the only option is "bdgz"
 
@@ -340,8 +340,8 @@ You can think of it like a tree, at every intersection we recursively call `get_
 
 Now, we only need a function to extract the chars from the `cmp/jmp` section and the next case number from the `jz` of each.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023110119736.png)
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023110135907.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023110119736.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-5/file-20251023110135907.png)
 
 ```python
 from struct import unpack

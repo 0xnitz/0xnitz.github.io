@@ -41,19 +41,19 @@ Please check your RPC_URL and network connection.
 Please check your RPC_URL and network connection.
 ```
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023130226143.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023130226143.png)
 
 This is definitely a crypto challenge, reversing will probably take a backseat for this one.
 The main window has a few buttons, and a text box for sending chat messages.
 when clicking on the `Enable Super-Safe Encryption` check and turning it on/off we get these logs:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023130250453.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023130250453.png)
 
 Nice, there is a weak encryption (LCG-XOR) and a strong one (RSA) that we can switch between.
 
 When connecting to the ip address we get this message:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023130302414.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023130302414.png)
 
 And we can experiment with messaging, all generating a lot of logs via the bash window.
 
@@ -106,7 +106,7 @@ AttributeError: 'NoneType' object has no attribute 'functions'
 
 The last button, and probably the most interesting one is the `Last Convo` revealing a chat history window with plain/ciphertext!!!
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023130325276.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023130325276.png)
 
 This is huge, we have the RSA public key, and the weaker encryption's plain/ciphertexts, maybe the challenge won't require us to send/play with any of the live features ourselves and be purely crypto.
 
@@ -389,7 +389,7 @@ The seed is the `SHA256` of the computer name!
 
 And the primes come from continuous hashing of the computer name until a prime-hash is found.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023152452116.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023152452116.png)
 Meaning, XORing the ciphertext with the plaintext results us with the `prime ^ conversation_time` and because we have the conversation time, we can solve for the LCG primes!
 
 ### RSA
@@ -512,7 +512,7 @@ seed_state = (inv_a * (s0 - c)) % m
 
 How does that work you ask?
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023153333177.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-6/file-20251023153333177.png)
 ### Solving for the RSA Primes
 
 Now that we have almost all the information including the seed state without knowing the computer name secret we can build our own LCG state machine that for each `_next` does `state = (a*state+c)%m`

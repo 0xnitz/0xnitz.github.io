@@ -27,48 +27,48 @@ The executable is also a c++ written GUI using Qt6.
 ### Verifying DLLs
 
 To make sure the DLLs are legit I checked each one's signature via Windows Explorer:
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024091615093.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024091615093.png)
 ### Bypassing run.bat
 
 Opening the binary in IDA I first noticed there is a TLS Callback registered (will execute before main) that checks the environment variable the run.bat just set.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024091508162.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024091508162.png)
 
 Because it is the only xref to said variable i'm gonna make a bold statement and just patch a return to the start of the function, so I can debug nicely (setting the environment variable can also work, but my VM got corrupted and I was researching this on my host).
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024091514866.png)
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024091520543.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024091514866.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024091520543.png)
 
 ### Trying to Get a Callback on OK
 
 Running the program we get a nice calculator looking GUI
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024091940335.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024091940335.png)
 
 When pressing a button the DEL button lights up (probably because we can delete chars now) but the OK button (I guess submit) stays greyed out
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092016089.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092016089.png)
 
 Only when filling up the entire 25 digit code we can press OK:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092102401.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092102401.png)
 
 Granting us with a "Wrong Password" dialog
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092128536.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092128536.png)
 
 Obviously the challenge right now is get a callback on "OK", the password checking logic probably happens over there.
 Having worked with this library before, this is a warning dialog box, so I'll set a breakpoint on the the calling function to the module
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092425291.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092425291.png)
 
 Now after hitting the breakpoint I'll observe the callstack and go up until finding a beefy function that looks to do calculations/comparisons.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092754631.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092754631.png)
 
 Going up just one call gets us to a huge, obfuscated function:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092852330.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024092852330.png)
 
 And as expected the params are loaded and print fail is called, let's observe more of this function.
 Because this function is so large I spent a while just tracing the xrefs to the params and going up finding nothing.
@@ -78,42 +78,42 @@ Then I thought, I just need to find the password hashing logic, than trace the h
 I have one more ace up my sleeve, using CheatEngine like old times to find occurrences of the plaintext password in memory.
 To set this up I just start the FlareAuthenticator mysef, attach to it via CheatEngine and after locating the bytes detach CheatEngine and attach via debugger in IDA, then setting a hardware read/write breakpoint on the plaintext buffer.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024093445773.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024093445773.png)
 
 Nice, now setting the breakpoint and continuing execution we actually hit something!
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024093547155.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024093547155.png)
 
 And it's caller
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024093632832.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024093632832.png)
 
 After setting more memory breakpoints I didn't hit anything exciting, I was hoping to get an offset in `ok_pressed` (of the hashing or comparison) and spent quite a while doing this.
 Some time has passed and I though, maybe the secret/hash is generated digit by digit, in the caller of `check_if_password_long_enoguh` and not in `ok_pressed`, and in the submit logic, the hashes are only compared.
 Because the `check_if_password_long_enough` and it's wrappers did not have any static xrefs to any interesting function I went up the callstack again and found this function:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024094208523.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024094208523.png)
 
 Again, a huge, obfuscated function I called `do_program` being the "main/game-loop" of our GUI up. It references the plaintext password here (and in a lot of other places) and initializes some sort of struct that it's offset 0x58 is the plaintext password excluding the current new pressed digit.
 After this, the function we went over copies onto it and we can continue execution.
 
 Okay, seems like we have a main `password_object` and a logic function `do_program`, let's look at xrefs to `password_object`.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024094518199.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024094518199.png)
 
 This xref initializes a Qt6 proprietary byte array, seems promising.
 The next xref calls a function with the password object and current index.
 ## Finding Key-Press Hashing Logic
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024094713562.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024094713562.png)
 
 Re-enabling the hardware breakpoints we can see this function is called twice in `do_program`, once with `rcx=password_object, dx=current_index` and again with weird params, `rcx` still being `password_object`
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024094951045.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024094951045.png)
 
 Stepping into the `call` we see `dx` has a weird convention, it's always the `current_index*0x100 + chr(current_digit)`. The number is actually a 2 byte number that holds both the current index and current pressed digit, like `((char)index << 8) + chr(current_digit)`
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024094857784.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024094857784.png)
 
 The weird thing about both of these calls is that they return some weird number, the first one returns a deterministic number, tied to the current index, and the second one a deterministic number, tied to both the current index and digit.
 
@@ -126,11 +126,11 @@ After testing this some more I discovered there are exactly 25 options for the f
 
 Just after the second call to `hash_current_digit` there is a weird `imul`, it's actually between the results of the 2 calls, the first hash (index) and the second hash (index << 8 + digit).
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024095850383.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024095850383.png)
 
 Going down one xref on this local variable we are met with the below snippet.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024095927089.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024095927089.png)
 
 I know IDA's disable breakpoint green color is horrible to look at but bear with me.
 The above assembly code takes in the new multiplied hashes and does some binary operations on them and saves the results in `*(password_object+0x78)`, and also look that the previous value of this struct field comes into play.
@@ -147,19 +147,19 @@ print(sum) -> the secret
 
 The only thing left now is to find the traces to `password_object->sum_of_hash_multiplications`, I'll set a HWBP and continue execution after the last digit.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024101758842.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024101758842.png)
 
 Boom! In `ok_pressed` as expected, there is a comparison to hardcoded number `0xBC42D5779FEC401`, now lets go down one xref on `is_pass_correct`:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024101902423.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024101902423.png)
 
 How convenient, let's lie and jump to the other condition:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024102023116.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024102023116.png)
 
 Nice! and this time we do not get the warning dialog:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024102156439.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024102156439.png)
 ## Path-To-Win
 
 Now the win condition is clear to me, I need to extract the 25+250 possible hashes and solve a summing problem of their multiplications.
@@ -327,10 +327,10 @@ CTF\flareon\8_-_FlareAuthenticator> python .\solve_z3.py
 
 Let's insert the password:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024104238090.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024104238090.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024104341421.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024104341421.png)
 
 :)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024104351914.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-8/file-20251024104351914.png)

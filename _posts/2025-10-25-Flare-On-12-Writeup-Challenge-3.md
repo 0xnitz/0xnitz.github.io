@@ -14,17 +14,19 @@ tags:
 ## Opening the PDF
 
 When opening the PDF in Chrome, we see the CTF name displayed on screen as text, not very interesting
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021144925828.png)
+
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021144925828.png)
+
 Maybe the PDF file itself has some hidden message, I'll try a hex editor.
 ## PDF Headers
 
 Opening the pdf in 010 Editor, the first thing I spot is the encrypted stream inside the pdf (highlighted yellow, green) inside body object number 5.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251019194129016.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251019194129016.png)
 
 There is also a fake flag for the lolz
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021145049181.png)
 
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021145049181.png)
 
 I believe decrypting the stream is the next step.
 
@@ -62,17 +64,17 @@ qpdf: operation succeeded with warnings; resulting file may have some problems
 
 Opening the file doesn't seem to help in any way, maybe the hex data will have something useful
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021145728786.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021145728786.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021145923440.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021145923440.png)
 
 The PDF looks very nice and organized now, let's look for the decrypted stream
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021150014784.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021150014784.png)
 
 This is jpeg magic! I'll dump this to a separate file.
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021150113460.png)
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021150153129.png)
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021150208688.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021150113460.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021150153129.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-3/file-20251021150208688.png)
 This is a greyscale image.. At first I thought I copied the bytes wrong and got a blurry/invalid image, but no. when looking in 010 this is obviously greyscale
 ## Transforming the Grayscale
 

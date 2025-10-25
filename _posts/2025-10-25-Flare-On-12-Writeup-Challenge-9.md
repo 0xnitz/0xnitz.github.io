@@ -17,18 +17,18 @@ The last challenge is opened with a single exe file, `10000.exe`, 1GB(!).
 Because the huge size, I first opened it in `ResourceHacker` to see if it has any large resources, no way IDA can digest a 1GB `.text` section.
 ### Finding the Resources
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124006455.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124006455.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124013256.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124013256.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124021589.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124021589.png)
 
 As expected, the large sizing is resource-based. There are 10,000 resources that appear to be encoded/encrypted MZs (the `MZ` isn't right, also the other headers).
 ### Looking at Strings/Imports
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124232778.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124232778.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124342771.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124342771.png)
 
 The program definitely loads the resources into memory at some point, resolving all their imports using `LoadLibrary/GetProcAddress`.
 ## Reversing the Binary
@@ -36,7 +36,7 @@ The program definitely loads the resources into memory at some point, resolving 
 Opening in IDA was rapid, expected because the `.text` section isn't actually that big.
 The binary itself is kind of big, IDA recognizes 4000+ procedures but I didn't see any huge, bloated ones like the ones from challenges 5/7/8.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124601370.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124601370.png)
 
 `main` seems to be simple enough, the only logic bearing function I see called from it is this function, I later named `check_license`.
 ### License.bin Verification
@@ -51,7 +51,7 @@ invalid license file
 
 The program ran so quickly it was weird, maybe if I place a `license.bin` in it's folder it will be quicker. No, maybe there are some requirements on the `license.bin` before any resource handling happens, I'll dive into `check_license`
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124820292.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024124820292.png)
 
 This function is simple enough when debugging it, so naming everything was simple.
 As expected from earlier, we are checking the `license.bin` from the current directory, but we first check if it's size is `340000` bytes, when creating a `\x00*340000` file named `license.bin` the program takes a long while before printing the `invalid license file`, so we probably got to the resource part.
@@ -59,7 +59,7 @@ As expected from earlier, we are checking the `license.bin` from the current dir
 From the screenshot I pasted we can see 10,000 seem t be the number of times the for loop is ran.
 even more, the loop goes as follows:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024125302751.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024125302751.png)
 
 For every iteration, we take the current 2 bytes (word) from `license.bin` and use them to resolve something only after checking it's between 0 and 9999 (probably load the resource) and call some check function with the later 32 bytes of `license.bin`, then continuing to the next 34 bytes, times 10,000 iterations (or `34*10000=340000` bytes).
 
@@ -69,12 +69,12 @@ This makes a lot of sense, given that `_Z5checkPh` is actually `check(unsigned c
 Let's go into `find_resource_and_dynamically_load`, and check if our hypothesis is correct, and it does load each resource into memory and resolve it's `check` function.
 #### Part 1 - Mapping the Resource to Program Memory
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024130944891.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024130944891.png)
 
 Using WinAPI to resolving the current resource from the function params and mapping it to memory via `VirtualAlloc`, and copying each section with a `memcpy` loop.
 Also, a `module_struct` is defined, that holds the following:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024131102955.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024131102955.png)
 
 `start_address` is the address in program memory, while `module_context` is used to resolve function addresses in the modules with `maybe_lookup_export_or_name(module_context, mangled_function_name)`. `module_context` holds function addresses, it is initialized later on in this function
 
@@ -82,7 +82,7 @@ One more part I left out is the decompression of the resource data before loadin
 
 #### Part 2 - Resolving Imports and Recursively Loading Resource Dependencies
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024131511342.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024131511342.png)
 
 Ignore the horrible IDA disabled breakpoint color again and look that if the first 4 chars of the next `dll`'s name are digits, the program does not do a classic
 ```
@@ -99,27 +99,27 @@ But a **recursive call to itself**, with the resource id of the dependency!
 
 #### Part 3 - Initializing `module_context` and Fixing Relocations
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024131611592.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024131611592.png)
 
 In this stage the program fixes all relocations and and prepares the DLL for execution (we need it to be right for the `check(unsigned char *)` to work nicely. It also initializes `module_context` with the export functions for later use.
 #### Part 4 - Calling Entry Point with `global_output_array` and Adding to Loaded Module Vector
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024133452932.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024133452932.png)
 
 The last part is calling the loaded module's entrypoint with the `global_output_array` and doing `module_descriptor_vecotr.push_back(current_module_struct)` before returning.
 We'll get into more detail about `global_output_array` and `module_descriptor_vector` in the next section.
 
 Let's observe the entrypoint of an example DLL
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024135628980.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024135628980.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024135644382.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024135644382.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024135652298.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024135652298.png)
 
 It basically takes in the `global_output_array` and saves it to a global, for later use
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024135726851.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024135726851.png)
 
 It has a lot of xrefs, from subfunctions of check we'll get into later, and current saving function.
 ### Understanding the Win-Condition
@@ -141,7 +141,7 @@ resource_information license_file_data[10000]; // 10000*34=340000 bytes
 
 #### `add_to_output_array_loaded_modules`
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024134155269.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024134155269.png)
 
 This function is rather short and simple, but holds enormous value in our path to the flag.
 It first takes in the current index of the loop and loops over all loaded resources in this current iterations (`license[i]->resource_id` + all of it's resource dependencies) and adds `current_index` to an array at the index of each modules `resource_id`.
@@ -163,13 +163,13 @@ From this we can make a few, very important conclusions.
 Let me take you back to `check_license` and remind you that even if a single's `license[i]->resource_id`'s `check(unsigned char*)` fails we exit the entire program with a fail.
 That explains the ~1 minute it took for my program to fail when I gave it a zero license in the right size, it only ran 1(!) iteration and it took it this much time (and I have a beefy machine).
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024135014534.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024135014534.png)
 
 After the loop, only if it succeeds and passes 10k checks (perfect license) it compares the sum array from earlier to a hardcoded one, 10,000 DWORDs = 40,000 bytes and only if correct, we print the flag, that is generated from the actual `license.bin` bytes.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024130559612.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024130559612.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024130622191.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024130622191.png)
 
 #### Path-To-Win and Current Conclusions
 
@@ -239,7 +239,7 @@ Finally some assembly. To get the decoded resources all into a folder I wrote al
 
 The script sets rip to be the start of `find_resource_and_dynamically_load` after setting the right `resource_id` and just after the decompression reads and extracts the whole memory mapped resource to a file.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024145248602.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024145248602.png)
 
 ```python
 for i in range(10000):
@@ -252,7 +252,7 @@ for i in range(10000):
     current_outfile.write(retrive_resource_from_memory(resource_pointer, resource_size))
 ```
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024145743514.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024145743514.png)
 
 Terrific!
 
@@ -308,7 +308,7 @@ After that, just dumping to the json.
 
 Went to the file offset in 010 Editor and just copied using Ctrl Shift C into a new hex file.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024151115293.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024151115293.png)
 > Remember, now they are in little endian.
 ### Scripting the Solution
 
@@ -583,7 +583,7 @@ Checksum sum(sim) = 246018992394
 
 This took me so much time, the approach that worked for me is take small example (like the one I gave you above) and debug the algorithm to find bugs.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024152304903.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024152304903.png)
 
 This is not the final `license.bin`, it is much smaller because it does not include the 32 bytes for every 2  byte `resource_id`. but this is the order I used to generate the 10k state arrays of 10k dwords for each `license[i]`.
 
@@ -778,7 +778,7 @@ if __name__ == '__main__':
 
 Huge JSON preview:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024153752464.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024153752464.png)
 
 That makes a lot of sense, we can see the first module (7476) gets an empty array as expected and the second one gets an array of 1s and 0s.
 
@@ -794,17 +794,17 @@ Now that we have the right order and all the states, we are ready to continue to
 
 ### Reversing `check` manually
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024162552512.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024162552512.png)
 
 `check` starts off with a longs series of sub-function calls we will get into later, but for now remember they have a few distinct types and they depend on the `global_output_array[resource_id]` from the current state.
 Also, the reason the modules have so many sub-module dependencies is because all the purple f's are imported from other modules, and thus dependent on `global_output_array[import_from]` but from `state[resource_id]` and that is why the `10,000*10,000` array of states is required.
 
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024162758152.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024162758152.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024162831709.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024162831709.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024162838645.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024162838645.png)
 
 After the f chain we have a very long series of operations that do 4 by 4 matrix multiplications and compare those to a const hardcoded value for each different `check`.
 
@@ -834,7 +834,7 @@ I'll paste in the Python implementation for each function type, when we have the
 
 Frame size = 0x110
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024164829076.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024164829076.png)
 
 That basically does:
 
@@ -857,7 +857,7 @@ def b(input_bytes, global_output_array_from_state_at_resource_id):
 
 Frame size = 0xc0
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024165026557.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024165026557.png)
 
 And in python:
 
@@ -907,7 +907,7 @@ def c(self, input_bytes: bytes, global_output_array_from_state_at_resource_id: i
 
 Frame size = 0x50
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024165619205.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024165619205.png)
 
 And Python implementation:
 
@@ -1355,7 +1355,7 @@ if __name__ == "__main__":
 
 And the JSON:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024170534588.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024170534588.png)
 
 Each module has a list of sorted function calls (all the fs in order) and all of their types, constants and their parent-module (for grabbing the right `state[resource_id]`).
 Now we can combine this with the f reversing logic, together with the final JSON from task 1 to generate one final license.
@@ -1770,22 +1770,22 @@ if __name__ == '__main__':
 
 Snippet from the output:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024170815146.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024170815146.png)
 ## Giant Win
 
 Now running the program until a breakpoint before the huge loop
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024170917291.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024170917291.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024171059864.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024171059864.png)
 
 Changing `RIP` to be after the `memcmp`:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024171130596.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024171130596.png)
 
 And for the final time this year, continuing.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024171213134.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024171213134.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024115257307.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024115257307.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024115310233.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-9/file-20251024115310233.png)

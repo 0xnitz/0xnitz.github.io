@@ -74,6 +74,6 @@ if __name__ == '__main__':
     main()
 ```
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-1/file-20251018095228588.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-1/file-20251018095228588.png)
 
 :)

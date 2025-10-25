@@ -17,7 +17,7 @@ We receive an executable and a pcap, the executable is on the larger side - 4MB 
 
 ### PCAP Recon
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023191225022.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023191225022.png)
 
 It appears there is a client (192.168.56.103) and a server (192.168.56.117) both sitting on a local network communication via HTTP 1.1.
 The first one to initiate the communication is the client, with some sort of GET to `/good` and after an `200 OK` from the server and an unusual `POST` the communication seems to be very predictible:
@@ -27,14 +27,14 @@ server ➡️ client 200 OK with a JSON response
 
 This looks like typical malware communication, first a bot/agent hello (via /good) and after that constant polling every 5 seconds (peep the times).
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023191704614.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023191704614.png)
 
 So most likely the client is telling the server it's ready for a command (the server being the C2) and after receiving one (via encrypted JSON) the client does it.
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023191823215.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023191823215.png)
 
 Some commands ask the client to return data to the server, and the client does that on it's own time via `GET /re`
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023191923614.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023191923614.png)
 
 You can see the `GET /re` gets the client/server out of the % 5 seconds sync, so the command probably took about 2 seconds to execute client-side.
 
@@ -44,7 +44,7 @@ One more interesting thing is that the first hello the client/agent sends the se
 * The URL is different (being twelve.flare-on.com:8000 instead of theannualtraditionofstaringatdisassemblyforweeks.torealizetheflagwasjustxoredwiththefilenamethewholetime.com:8080 on all other requests)
 * We have an auth bearer, being some hash looking thing.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023192210720.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023192210720.png)
 
 The ones with sharp eyes will see that the bearer is no hash, and actually shorter than a regular hash:
 
@@ -53,7 +53,7 @@ The ones with sharp eyes will see that the bearer is no hash, and actually short
 29.0
 ```
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023192537271.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023192537271.png)
 
 Regarding the first unusual `POST`, it appears to be one of the only packets the client sends the server an encrypted JSON (besides all /re requests) and also the first packet the second URL appears in.
 
@@ -71,16 +71,16 @@ Regarding the first unusual `POST`, it appears to be one of the only packets the
 
 Opening the executable in IDA takes a while, that's probably because it has more than 1000 procedures, and at least a few **HUGE** ones that look like this:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023193257017.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023193257017.png)
 
 This is probably obfuscated using some compiler rule/script, and does nothing. The downside is that is breaks my decompiler :(
 
 Looking at the imports there are a few malware related info-gathering functions:
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023193355906.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023193355906.png)
 
 And a few networking functions, as expected. At least the imports are not resolved dynamically 😅.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023193433801.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023193433801.png)
 
 I didn't see any JSON parsing import/loaded module. So the parsing is either proprietary or using a dynamically loaded library or a statically compiled one.
 ### Writing a Fake HTTP Server
@@ -190,13 +190,13 @@ Now changing `hosts` will do the trick:
 
 As expected, when running the binary, the first packet is sent and received, but after that we get a JSON parsing exception?
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023200034993.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023200034993.png)
 
 Investigating the callstack using System Informer leads me to the throw function
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023200211287.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023200211287.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023200252169.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023200252169.png)
 
 And we can see from the throw info the error is from the common [nlohmann](https://github.com/nlohmann/json) JSON cpp header only library (Thus making my idea from earlier correct, it is statically compiled).
 
@@ -204,11 +204,11 @@ And we can see from the throw info the error is from the common [nlohmann](https
 
 Going further up in the callstack, we see the crash happens here, in library code
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023200539465.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023200539465.png)
 
 Reading the source code of the library, we can see the error is indeed in the the json parsing
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023200730584.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023200730584.png)
 
 ### Writing Tests
 
@@ -232,22 +232,22 @@ When that didn't work I investigated the compiled copy of `nlohmann::json` in th
 
 After realizing this is a void and continuing up the call stack I saw the error was on the first character, how is that possible? I validated 1 billion times the Flask returns a valid json.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023201720813.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023201720813.png)
 
 Then I searched who calls nlohmann::json::parse and to my surprise there are 4 big, main looking functions that call it.
 When putting breakpoints on `do_program`'s calls to `parse_json` It seems the json from the packet is parsed, without error, and only then, a gibbrish value is parsed, again, from the second offset (+0x3b93b) before any other HTTP GET is sent.
 
 First call:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023202247007.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023202247007.png)
 
 `*(json_object+0xc8)`:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023202235461.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023202235461.png)
 
 Second call:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023202359480.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023202359480.png)
 
 `json_raw` = gibbrish!
 
@@ -270,11 +270,11 @@ Now given all the reversing we've done, we can go to `do_program` or our main, p
 
 In this case, just using xrefs is enough (I used this trick in the previous reversing stages).
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023202859016.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023202859016.png)
 
 Now, we go up one xref:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023202912356.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023202912356.png)
 
 Woah, a call to a decryption function. The parameter names I gave are spoilers but when debugging I see the `in_ciphertext = first_json["d"]` and `user_pcname = WINDOWS_USERNAME@WINDOWS_PCNAME` (These are the same values stored in the program from it's first stages, calling GetUserNameA/GetComputerNameA).
 
@@ -294,27 +294,27 @@ And of course, the USERNAME/PCNAME are secret to me, probably need to reverse th
 
 This is also a huge, obfuscated function. Using tricks from new IDA versions helps out a ton though 😍
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203320451.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203320451.png)
 
 Tracing the calls to the registers, reversing this was straight-forward and simple, but time intensive.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203452425.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203452425.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203741826.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203741826.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203653491.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203653491.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203710515.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203710515.png)
 
 The encryption seems to be rather simple, let's investigate this weird `cipher_block` of noise.
 
 It has an initialization/clean functions:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203838479.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203838479.png)
 
 It is initialized from `cipher_block_indexes` which is basically it's inverse, and `cipher_block_indexes` is indeed hardcoded :)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203937978.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023203937978.png)
 
 Using all this information we can create the following encryption/decryption logic:
 
@@ -362,9 +362,9 @@ I created `cipher_block` by debugging and grabbing it from memory after initiali
 
 I spent a lot, and I mean a lot of time scripting a viable brute force solution to this problem, knowing the plaintext must be a valid JSON is not a large enough crib, and I thought because just after the second `::parse` call there is a `does_key_exist("ack")` that the JSON structure has to be `{"ack": "}` I spend way too long trying to bruteforce parts of the username/computer name.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023204434217.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023204434217.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023204402665.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023204402665.png)
 
 After a while, I realized this is probably not the way, we had a math challenge just last level and there can only be one math focused challenge each year (haha).
 Thus, I resulted to searching other xrefs to said username/computer name.
@@ -377,11 +377,11 @@ Going up 1 xref from the `decrypt_json` call I've found a `str.concat` call with
 
 Going down 1 xref from that result we see this call
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023204916671.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023204916671.png)
 
 probably not it, continuing..
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023205013282.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023205013282.png)
 
 Ignoring the spoiler name, this one takes in the `dateUSERNAME@PCNAME` string and some params and returns a rather weird looking string, starting in `\xe4`. Before reversing, when looking at the params, I see that the length is 0x1d, or 29.
 Then I remembered something from the recon phase, the bearer is 29 bytes long! Now revealing the function name in all it's glory:
@@ -389,17 +389,17 @@ Then I remembered something from the recon phase, the bearer is 29 bytes long! N
 
 ### Reversing the Encoding
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023205321773.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023205321773.png)
 
 Okay, same format as `decrypt_json` but this time we have the key and I'm a pro at reversing these functions.
 
 * peep that `cipher_block_indexes`, the inverse of `cipher_block` is in use
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023205456087.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023205456087.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023205525265.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023205525265.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023205543012.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023205543012.png)
 
 ### Writing the Decode Flow
 
@@ -465,35 +465,35 @@ Double Bang! 🔫🔫
 
 Now we can continue the program and see the agent sends another packet to the server, but it's raw data is different, how so?
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023210426781.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023210426781.png)
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023210519144.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023210519144.png)
 
 Something I missed in the pcap is that there is a `msg` field, which is sysi (or system information!!!). I'll use hardware breakpoints and callstack parsing like we did earlier to find how is this encrypted (I tried running this in my decryption script with no success).
 
 After callstack parsing, VM snapshot tricks and more shenanigans we are met with this call
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211053351.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211053351.png)
 
 When opening this procedure I let out a sigh of relief, finally, a non-obfuscated crypto function!
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211148372.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211148372.png)
 
 Snippet from the inner function:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211208692.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211208692.png)
 
 As expected, this looks a lot like aes, and like CBC with SBOX, uses a hardcoded large array with an IV/KEY pair. The array is 256 bytes long.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211303990.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211303990.png)
 
 The challenge is obviously not breaking the the encryption, so I'll search how the key is generated.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211420838.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211420838.png)
 
 This function doesn't do anyhting serious, but we see an older keystream variable, let's trace it.
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211505423.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211505423.png)
 
 What does this do? Okay I know the function name and parameter names make it easy but I didnt have them!
 This function takes in the current hour of the local machine clock, as long with the username from the first packets (peanut) and the USERNAME@PCNAME (TheBoss@THUNDERNODE) and generates a keystream.
@@ -505,7 +505,7 @@ IV = `00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f`
 
 Putting these into cyberchef:
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211848280.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023211848280.png)
 
 `{"ci":"Architecture: x64, Cores: 2","cn":"THUNDERNODE","hi":"TheBoss@THUNDERNODE","mI":"6143 MB","ov":"Windows 6.2 (Build 9200)","un":"TheBoss"}`
 
@@ -519,7 +519,7 @@ Now let's decrypt the rest of the packets:
 
 Just as I assumed, the next `/get` is a heartbeat
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023212053296.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023212053296.png)
 
 ```
 {"ci":"Architecture: x64, Cores: 2","cn":"THUNDERNODE","hi":"TheBoss@THUNDERNODE","mI":"6143 MB","ov":"Windows 6.2 (Build 9200)","un":"TheBoss"}
@@ -550,7 +550,7 @@ Just as I assumed, the next `/get` is a heartbeat
 But after a while we get this sad message. There is another encryption key 🥲
 
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023212247985.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023212247985.png)
 
 This happens after the server requests us to do a `{"msg": "cmd", "d": {"cid": 6, "dt": 20, "np": "TheBoss@THUNDERNODE"}}`. I don't know what is a `command_id` 6 yet, but it made the server and client switch encryption keys.
 
@@ -580,7 +580,7 @@ Nice!
 
 > rocknroll.zip is a file the server requested and the client gave it to him. It's a zip that includes a flag.jpg!!!
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023214127749.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023214127749.png)
 
 After that packet, a "`miami`" is sent and then another encryption key is exchanged.
 ## Layer 4
@@ -614,4 +614,4 @@ Other: TheBigM@n1942!
 
 Inputting the password, for the last time 💪
 
-![](assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023214358679.png)
+![](/assets/2025-10-25-Flare-On-12-Writeup-Challenge-7/file-20251023214358679.png)
