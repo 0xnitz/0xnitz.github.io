@@ -1,5 +1,5 @@
 ---
-title: Pwning Like Moses - Writing Hebrew Unicode Shellcode - 10000
+title: Pwning Like Moses - Writing Hebrew Unicode Shellcode
 date: 2025-11-05 09:00:00 +0300
 tags:
   - CTF
