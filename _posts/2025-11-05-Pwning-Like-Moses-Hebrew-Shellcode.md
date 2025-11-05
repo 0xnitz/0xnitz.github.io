@@ -21,7 +21,7 @@ I vibe-coded (using 2023 chatgpt, was not the best) a C snippet that accepts a u
 
 This is the string validation:
 
-```C
+```c
 int charInSet(char c, const char* set) 
 {
     size_t len = strlen(set);
@@ -59,7 +59,7 @@ int containsHebrew(const char* str, const char* set)
 And the main logic:
 
 
-```C
+```c
 #include <stdio.h>
 #include <wchar.h>
 #include <wctype.h>
@@ -145,13 +145,14 @@ Let's look at the Intel manual and try to create said escape:
 
 ![](/assets/2025-11-05-Pwning-Like-Moses-Hebrew-Shellcode/file-20251105123025030.png)
 
-Perfect, byte 0x30 is '0' and in our special chars, and when paring it with a second byte we can xor two small values (thus inflicting less damage to our saved context in other registers).
+Nice, byte 0x30 is '0' and in our special chars, and when paring it with a second byte we can xor two small values (thus inflicting less damage to our saved context in other registers).
 
 ![](/assets/2025-11-05-Pwning-Like-Moses-Hebrew-Shellcode/file-20251105123128577.png)
 
 ![](/assets/2025-11-05-Pwning-Like-Moses-Hebrew-Shellcode/file-20251105123140246.png)
 
 Using `D6` is nice because we are xoring only the least significant 2 bytes of `rdx`, using `D7` we xor the second byte of `rbx` with the first of `rdx`.
+
 Perfect❗ This means we can use the second byte for free, and if we can find `Single Byte Opcodes` that suit our case we can create primitives to change and modify the registers, and push values to the stack, thus creating our chain to win!!
 
 ![](/assets/2025-11-05-Pwning-Like-Moses-Hebrew-Shellcode/file-20251105123440677.png)
